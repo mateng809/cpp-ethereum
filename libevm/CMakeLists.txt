@@ -2,6 +2,7 @@
 set(sources
     ExtVMFace.cpp ExtVMFace.h
     Instruction.cpp Instruction.h
+    interpreter.h
     LegacyVM.cpp LegacyVM.h
     LegacyVMCalls.cpp
     LegacyVMOpt.cpp
