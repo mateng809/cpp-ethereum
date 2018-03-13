@@ -32,7 +32,8 @@ class VM: public evm_instance
 public:
     VM();
 
-    owning_bytes_ref exec(u256& _io_gas, ExtVMFace& _ext);
+    owning_bytes_ref exec(evm_context* _context, evm_revision _rev, const evm_message* _msg,
+        uint8_t const* _code, size_t _codeSize);
 
 #if EIP_615
     // invalid code will throw an exeption
@@ -48,10 +49,10 @@ public:
     };
 
 private:
-
-    u256* m_io_gas_p = 0;
     uint64_t m_io_gas = 0;
-    ExtVMFace* m_ext = 0;
+    evm_context* m_context = nullptr;
+    evm_revision m_rev = EVM_FRONTIER;
+    evm_message* m_message = nullptr;
 
     static std::array<InstructionMetric, 256> c_metrics;
     static void initMetrics();
@@ -59,9 +60,7 @@ private:
     void copyCode(int);
     typedef void (VM::*MemFnPtr)();
     MemFnPtr m_bounce = 0;
-    MemFnPtr m_onFail = 0;
     uint64_t m_nSteps = 0;
-    EVMSchedule const* m_schedule = nullptr;
 
     // return bytes
     owning_bytes_ref m_output;
@@ -69,6 +68,8 @@ private:
     // space for memory
     bytes m_mem;
 
+    uint8_t const* m_pCode = nullptr;
+    size_t m_codeSize = 0;
     // space for code
     bytes m_code;
 
@@ -114,7 +115,7 @@ private:
 
     // interpreter cases that call out
     void caseCreate();
-    bool caseCallSetup(CallParameters*, bytesRef& o_output);
+    bool caseCallSetup(evm_message& _msg, bytesRef& o_output);
     void caseCall();
 
     void copyDataToMemory(bytesConstRef _data, u256*_sp);
@@ -215,6 +216,38 @@ private:
     }
 
 #endif
+};
+
+struct VMSchedule
+{
+    static constexpr int64_t stackLimit = 1024;
+    static constexpr int64_t stepGas0 = 0;
+    static constexpr int64_t stepGas1 = 2;
+    static constexpr int64_t stepGas2 = 3;
+    static constexpr int64_t stepGas3 = 5;
+    static constexpr int64_t stepGas4 = 8;
+    static constexpr int64_t stepGas5 = 10;
+    static constexpr int64_t stepGas6 = 20;
+    static constexpr int64_t stepGas7 = 0;
+    static constexpr int64_t expByteGas = 10;
+    static constexpr int64_t sha3Gas = 30;
+    static constexpr int64_t sha3WordGas = 6;
+    static constexpr int64_t sloadGas = 50;
+    static constexpr int64_t sstoreSetGas = 20000;
+    static constexpr int64_t sstoreResetGas = 5000;
+    static constexpr int64_t sstoreClearGas = 5000;
+    static constexpr int64_t jumpdestGas = 1;
+    static constexpr int64_t logGas = 375;
+    static constexpr int64_t logDataGas = 8;
+    static constexpr int64_t logTopicGas = 375;
+    static constexpr int64_t createGas = 32000;
+    static constexpr int64_t callGas = 40;
+    static constexpr int64_t memoryGas = 3;
+    static constexpr int64_t quadCoeffDiv = 512;
+    static constexpr int64_t copyGas = 3;
+    static constexpr int64_t valueTransferGas = 9000;
+    static constexpr int64_t callStipend = 2300;
+    static constexpr int64_t callNewAccount = 25000;
 };
 
 }

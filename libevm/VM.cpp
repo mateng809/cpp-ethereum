@@ -38,11 +38,7 @@ evm_result execute(evm_instance* _instance, evm_context* _context, evm_revision 
     const evm_message* _msg, uint8_t const* _code, size_t _codeSize)
 {
     auto vm = static_cast<VM*>(_instance);
-    u256 gas = _msg->gas;
-    (void)_rev;
-    (void)_code;
-    (void)_codeSize;
-    vm->exec(gas, *(ExtVMFace*)(_context));
+    vm->exec(_context, _rev, _msg, _code, _codeSize);
     return {};
 }
 }
@@ -119,22 +115,20 @@ void VM::adjustStack(unsigned _removed, unsigned _added)
 
 void VM::updateSSGas()
 {
-    if (!m_ext->store(m_SP[0]) && m_SP[1])
-        m_runGas = toInt63(m_schedule->sstoreSetGas);
-    else if (m_ext->store(m_SP[0]) && !m_SP[1])
-    {
-        m_runGas = toInt63(m_schedule->sstoreResetGas);
-        m_ext->sub.refunds += m_schedule->sstoreRefundGas;
-    }
+    evm_uint256be key = toEvmC(m_SP[0]);
+    evm_uint256be rawValue;
+    m_context->fn_table->get_storage(&rawValue, m_context, &m_message->destination, &key);
+    u256 value = fromEvmC(rawValue);
+    if (!value && m_SP[1])
+        m_runGas = VMSchedule::sstoreSetGas;
     else
-        m_runGas = toInt63(m_schedule->sstoreResetGas);
+        m_runGas = toInt63(VMSchedule::sstoreResetGas);
 }
-
 
 uint64_t VM::gasForMem(u512 _size)
 {
     u512 s = _size / 32;
-    return toInt63((u512)m_schedule->memoryGas * s + s * s / m_schedule->quadCoeffDiv);
+    return toInt63((u512) VMSchedule::memoryGas * s + s * s / VMSchedule::quadCoeffDiv);
 }
 
 void VM::updateIOGas()
@@ -148,7 +142,7 @@ void VM::updateGas()
 {
     if (m_newMemSize > m_mem.size())
         m_runGas += toInt63(gasForMem(m_newMemSize) - gasForMem(m_mem.size()));
-    m_runGas += (m_schedule->copyGas * ((m_copyMemSize + 31) / 32));
+    m_runGas += (VMSchedule::copyGas * ((m_copyMemSize + 31) / 32));
     if (m_io_gas < m_runGas)
         throwOutOfGas();
 }
@@ -163,8 +157,9 @@ void VM::updateMem(uint64_t _newMem)
 
 void VM::logGasMem()
 {
-    unsigned n = (unsigned)m_OP - (unsigned)Instruction::LOG0;
-    m_runGas = toInt63(m_schedule->logGas + m_schedule->logTopicGas * n + u512(m_schedule->logDataGas) * m_SP[1]);
+    unsigned n = (unsigned) m_OP - (unsigned) Instruction::LOG0;
+    m_runGas = toInt63(
+        VMSchedule::logGas + VMSchedule::logTopicGas * n + u512(VMSchedule::logDataGas) * m_SP[1]);
     updateMem(memNeed(m_SP[0], m_SP[1]));
 }
 
@@ -175,7 +170,8 @@ void VM::fetchInstruction()
     adjustStack(metric.args, metric.ret);
 
     // FEES...
-    m_runGas = toInt63(m_schedule->tierStepGas[static_cast<unsigned>(metric.gasPriceTier)]);
+    std::array<int64_t, 8> tierStepGas{{0, 2, 3, 5, 8, 10, 20, 0}};
+    m_runGas = tierStepGas[static_cast<unsigned>(metric.gasPriceTier)];
     m_newMemSize = m_mem.size();
     m_copyMemSize = 0;
 }
@@ -185,13 +181,13 @@ void VM::fetchInstruction()
 //
 // interpreter entry point
 
-owning_bytes_ref VM::exec(u256& _io_gas, ExtVMFace& _ext)
+owning_bytes_ref VM::exec(evm_context* _context, evm_revision _rev, const evm_message* _msg,
+    uint8_t const* _code, size_t _codeSize)
 {
-    m_io_gas_p = &_io_gas;
-    m_io_gas = uint64_t(_io_gas);
-    m_ext = &_ext;
-    m_schedule = &m_ext->evmSchedule();
-    m_onFail = nullptr;  // TODO: Check if ever used.
+    m_context = _context;
+    m_rev = _rev;
+    m_message = _msg;
+    m_io_gas = uint64_t(_msg->gas);
     m_PC = 0;
 
     try
