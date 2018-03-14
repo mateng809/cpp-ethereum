@@ -20,7 +20,10 @@
 #include "Instruction.h"
 #include "VMConfig.h"
 #include "VMFace.h"
+
 #include <evm.h>
+
+#include <boost/optional.hpp>
 
 namespace dev
 {
@@ -52,7 +55,8 @@ private:
     uint64_t m_io_gas = 0;
     evm_context* m_context = nullptr;
     evm_revision m_rev = EVM_FRONTIER;
-    evm_message* m_message = nullptr;
+    evm_message const* m_message = nullptr;
+    boost::optional<evm_tx_context> m_tx_context;
 
     static std::array<InstructionMetric, 256> c_metrics;
     static void initMetrics();
@@ -120,6 +124,8 @@ private:
 
     void copyDataToMemory(bytesConstRef _data, u256*_sp);
     uint64_t memNeed(u256 _offset, u256 _size);
+
+    const evm_tx_context& getTxContext();
 
     void throwOutOfGas();
     void throwBadInstruction();
@@ -228,8 +234,6 @@ struct VMSchedule
     static constexpr int64_t stepGas4 = 8;
     static constexpr int64_t stepGas5 = 10;
     static constexpr int64_t stepGas6 = 20;
-    static constexpr int64_t stepGas7 = 0;
-    static constexpr int64_t expByteGas = 10;
     static constexpr int64_t sha3Gas = 30;
     static constexpr int64_t sha3WordGas = 6;
     static constexpr int64_t sloadGas = 50;

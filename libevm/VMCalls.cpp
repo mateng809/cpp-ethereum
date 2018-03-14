@@ -239,29 +239,33 @@ bool VM::caseCallSetup(evm_message& o_msg, bytesRef& o_output)
     m_runGas = o_msg.gas;
     updateIOGas();
 
-    if (haveValueArg && m_SP[2] > 0)
-        o_msg.gas += VMSchedule::callStipend;
-
     o_msg.destination = destination;
+    o_msg.sender = m_message->destination;
+    o_msg.input_data = m_mem.data() + size_t(inputOffset);
+    o_msg.input_size = size_t(inputSize);
 
+    bool balanceOk = true;
     if (haveValueArg)
-        o_msg.value = toEvmC(m_SP[2]);
-
-    uint64_t inOff = (uint64_t)inputOffset;
-    uint64_t inSize = (uint64_t)inputSize;
-    uint64_t outOff = (uint64_t)outputOffset;
-    uint64_t outSize = (uint64_t)outputSize;
-
-    evm_uint256be rawBalance;
-    m_context->fn_table->get_balance(&rawBalance, m_context, &m_message->destination);
-    u256 balance = fromEvmC(rawBalance);
-
-    if (m_ext->balance(m_ext->myAddress) >= callParams->valueTransfer && m_ext->depth < 1024)
     {
-        callParams->onOp = {};
-        callParams->senderAddress = m_OP == Instruction::DELEGATECALL ? m_ext->caller : m_ext->myAddress;
-        callParams->receiveAddress = (m_OP == Instruction::CALL || m_OP == Instruction::STATICCALL) ? callParams->codeAddress : m_ext->myAddress;
-        callParams->data = bytesConstRef(m_mem.data() + inOff, inSize);
+        u256 value = m_SP[2];
+        if (value > 0)
+        {
+            o_msg.value = toEvmC(m_SP[2]);
+            o_msg.gas += VMSchedule::callStipend;
+            if (m_OP == Instruction::CALL)
+            {
+                evm_uint256be rawBalance;
+                m_context->fn_table->get_balance(&rawBalance, m_context, &m_message->destination);
+                u256 balance = fromEvmC(rawBalance);
+                balanceOk = balance >= value;
+            }
+        }
+    }
+
+    if (balanceOk && m_message->depth < 1024)
+    {
+        size_t outOff = size_t(outputOffset);
+        size_t outSize = size_t(outputSize);
         o_output = bytesRef(m_mem.data() + outOff, outSize);
         return true;
     }
