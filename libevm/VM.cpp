@@ -34,6 +34,11 @@ void destroy(evm_instance* _instance)
     delete static_cast<VM*>(_instance);
 }
 
+void delete_output(const evm_result* result)
+{
+    delete[] result->output_data;
+}
+
 evm_result execute(evm_instance* _instance, evm_context* _context, evm_revision _rev,
     const evm_message* _msg, uint8_t const* _code, size_t _codeSize) noexcept
 {
@@ -44,6 +49,11 @@ evm_result execute(evm_instance* _instance, evm_context* _context, evm_revision 
         auto output = vm->exec(_context, _rev, _msg, _code, _codeSize);
         result.status_code = EVM_SUCCESS;
         result.gas_left = vm->m_io_gas;
+        auto output_data = new uint8_t[output.size()];
+        std::memcpy(output_data, output.data(), output.size());
+        result.output_data = output_data;
+        result.output_size = output.size();
+        result.release = delete_output;
         return result;
     }
     catch (RevertInstruction const& ex)
