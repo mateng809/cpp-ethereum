@@ -416,7 +416,11 @@ void VM::interpretCases()
             logGasMem();
             updateIOGas();
 
-//            m_ext->log({}, bytesConstRef(m_mem.data() + (uint64_t)m_SP[0], (uint64_t)m_SP[1]));
+            uint8_t const* data = m_mem.data() + size_t(m_SP[0]);
+            size_t dataSize = size_t(m_SP[1]);
+
+            m_context->fn_table->emit_log(
+                m_context, &m_message->destination, data, dataSize, nullptr, 0);
         }
         NEXT
 
@@ -429,7 +433,14 @@ void VM::interpretCases()
             logGasMem();
             updateIOGas();
 
-//            m_ext->log({m_SP[2]}, bytesConstRef(m_mem.data() + (uint64_t)m_SP[0], (uint64_t)m_SP[1]));
+            uint8_t const* data = m_mem.data() + size_t(m_SP[0]);
+            size_t dataSize = size_t(m_SP[1]);
+
+            evm_uint256be topics[] = {toEvmC(m_SP[2])};
+            size_t numTopics = sizeof(topics) / sizeof(topics[0]);
+
+            m_context->fn_table->emit_log(
+                m_context, &m_message->destination, data, dataSize, topics, numTopics);
         }
         NEXT
 
@@ -442,7 +453,14 @@ void VM::interpretCases()
             logGasMem();
             updateIOGas();
 
-//            m_ext->log({m_SP[2], m_SP[3]}, bytesConstRef(m_mem.data() + (uint64_t)m_SP[0], (uint64_t)m_SP[1]));
+            uint8_t const* data = m_mem.data() + size_t(m_SP[0]);
+            size_t dataSize = size_t(m_SP[1]);
+
+            evm_uint256be topics[] = {toEvmC(m_SP[2]), toEvmC(m_SP[3])};
+            size_t numTopics = sizeof(topics) / sizeof(topics[0]);
+
+            m_context->fn_table->emit_log(
+                m_context, &m_message->destination, data, dataSize, topics, numTopics);
         }
         NEXT
 
@@ -455,7 +473,14 @@ void VM::interpretCases()
             logGasMem();
             updateIOGas();
 
-//            m_ext->log({m_SP[2], m_SP[3], m_SP[4]}, bytesConstRef(m_mem.data() + (uint64_t)m_SP[0], (uint64_t)m_SP[1]));
+            uint8_t const* data = m_mem.data() + size_t(m_SP[0]);
+            size_t dataSize = size_t(m_SP[1]);
+
+            evm_uint256be topics[] = {toEvmC(m_SP[2]), toEvmC(m_SP[3]), toEvmC(m_SP[4])};
+            size_t numTopics = sizeof(topics) / sizeof(topics[0]);
+
+            m_context->fn_table->emit_log(
+                m_context, &m_message->destination, data, dataSize, topics, numTopics);
         }
         NEXT
 
@@ -468,7 +493,15 @@ void VM::interpretCases()
             logGasMem();
             updateIOGas();
 
-//            m_ext->log({m_SP[2], m_SP[3], m_SP[4], m_SP[5]}, bytesConstRef(m_mem.data() + (uint64_t)m_SP[0], (uint64_t)m_SP[1]));
+            uint8_t const* data = m_mem.data() + size_t(m_SP[0]);
+            size_t dataSize = size_t(m_SP[1]);
+
+            evm_uint256be topics[] = {
+                toEvmC(m_SP[2]), toEvmC(m_SP[3]), toEvmC(m_SP[4]), toEvmC(m_SP[5])};
+            size_t numTopics = sizeof(topics) / sizeof(topics[0]);
+
+            m_context->fn_table->emit_log(
+                m_context, &m_message->destination, data, dataSize, topics, numTopics);
         }
         NEXT
 
