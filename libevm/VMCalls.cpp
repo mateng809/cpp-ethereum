@@ -197,6 +197,21 @@ bool VM::caseCallSetup(evm_message& o_msg, bytesRef& o_output)
 {
     m_runGas = VMSchedule::callGas;  // FIXME: Add support for SD HF.
 
+    switch (m_OP)
+    {
+    case Instruction::CALL:
+    case Instruction::STATICCALL:
+    default:
+        o_msg.kind = EVM_CALL;
+        break;
+    case Instruction::CALLCODE:
+        o_msg.kind = EVM_CALLCODE;
+        break;
+    case Instruction::DELEGATECALL:
+        o_msg.kind = EVM_DELEGATECALL;
+        break;
+    }
+
     if (m_OP == Instruction::STATICCALL || m_message->flags & EVM_STATIC)
         o_msg.flags = EVM_STATIC;
 
