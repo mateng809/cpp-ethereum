@@ -138,16 +138,15 @@ void VM::caseCreate()
     u256 balance = fromEvmC(rawBalance);
     if (balance >= endowment && m_message->depth < 1024)
     {
-        int64_t createGas = m_io_gas;
+        evm_message msg = {};
+        msg.gas = m_io_gas;
         if (m_rev >= EVM_SPURIOUS_DRAGON)
-            createGas -= createGas / 64;
+            msg.gas -= msg.gas / 64;
 
         // Get init code. Casts are safe because the memory cost has been paid.
         auto off = static_cast<size_t>(initOff);
         auto size = static_cast<size_t>(initSize);
 
-        evm_message msg = {};
-        msg.gas = createGas;
         msg.input_data = &m_mem[off];
         msg.input_size = size;
         msg.sender = m_message->destination;
@@ -161,7 +160,7 @@ void VM::caseCreate()
         m_SPP[0] = fromAddress(fromEvmC(result.create_address));
         m_returnData.assign(result.output_data, result.output_data + result.output_size);
 
-        m_io_gas = result.gas_left;
+        m_io_gas -= (msg.gas - result.gas_left);
     }
     else
         m_SPP[0] = 0;
@@ -184,7 +183,8 @@ void VM::caseCall()
         m_context->fn_table->call(&result, m_context, &msg);
 
         m_returnData.assign(result.output_data, result.output_data + result.output_size);
-        // FIXME: Copy output from result to the output buffer
+        bytesConstRef{&m_returnData}.copyTo(output);
+
         m_SPP[0] = result.status_code == EVM_SUCCESS ? 1 : 0;
         m_io_gas += result.gas_left;
     }
@@ -198,7 +198,7 @@ void VM::caseCall()
 
 bool VM::caseCallSetup(evm_message& o_msg, bytesRef& o_output)
 {
-    m_runGas = VMSchedule::callGas;  // FIXME: Add support for SD HF.
+    m_runGas = m_rev >= EVM_TANGERINE_WHISTLE ? 700 : 40;
 
     switch (m_OP)
     {

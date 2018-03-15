@@ -245,7 +245,6 @@ struct VMSchedule
     static constexpr int64_t logDataGas = 8;
     static constexpr int64_t logTopicGas = 375;
     static constexpr int64_t createGas = 32000;
-    static constexpr int64_t callGas = 40;
     static constexpr int64_t memoryGas = 3;
     static constexpr int64_t quadCoeffDiv = 512;
     static constexpr int64_t copyGas = 3;
