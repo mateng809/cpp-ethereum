@@ -35,11 +35,32 @@ void destroy(evm_instance* _instance)
 }
 
 evm_result execute(evm_instance* _instance, evm_context* _context, evm_revision _rev,
-    const evm_message* _msg, uint8_t const* _code, size_t _codeSize)
+    const evm_message* _msg, uint8_t const* _code, size_t _codeSize) noexcept
 {
     auto vm = static_cast<VM*>(_instance);
-    vm->exec(_context, _rev, _msg, _code, _codeSize);
-    return {};
+    evm_result result = {};
+    try
+    {
+        auto output = vm->exec(_context, _rev, _msg, _code, _codeSize);
+        result.status_code = EVM_SUCCESS;
+        result.gas_left = vm->m_io_gas;
+        return result;
+    }
+    catch (RevertInstruction const& ex)
+    {
+        result.status_code = EVM_REVERT;
+        return result;
+    }
+    catch (VMException const&)
+    {
+        result.status_code = EVM_FAILURE;
+        return result;
+    }
+    catch (...)
+    {
+        result.status_code = EVM_INTERNAL_ERROR;
+        return result;
+    }
 }
 }
 
@@ -1200,8 +1221,9 @@ void VM::interpretCases()
             ON_OP();
             updateIOGas();
 
+            evm_address address = toEvmC(asAddress(m_SP[0]));
             evm_uint256be rawBalance;
-            m_context->fn_table->get_balance(&rawBalance, m_context, &m_message->destination);
+            m_context->fn_table->get_balance(&rawBalance, m_context, &address);
             m_SPP[0] = fromEvmC(rawBalance);
         }
         NEXT
@@ -1632,7 +1654,7 @@ void VM::interpretCases()
             updateIOGas();
 
             evm_uint256be key = toEvmC(m_SP[0]);
-            evm_uint256be value = toEvmC(m_SP[0]);
+            evm_uint256be value = toEvmC(m_SP[1]);
             m_context->fn_table->set_storage(m_context, &m_message->destination, &key, &value);
         }
         NEXT

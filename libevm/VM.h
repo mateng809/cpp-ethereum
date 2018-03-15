@@ -51,8 +51,8 @@ public:
         return stack;
     };
 
-private:
     uint64_t m_io_gas = 0;
+private:
     evm_context* m_context = nullptr;
     evm_revision m_rev = EVM_FRONTIER;
     evm_message const* m_message = nullptr;
