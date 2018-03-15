@@ -189,7 +189,10 @@ void VM::caseCall()
         m_io_gas += result.gas_left;
     }
     else
+    {
         m_SPP[0] = 0;
+        m_io_gas += msg.gas;
+    }
     ++m_PC;
 }
 
@@ -222,7 +225,7 @@ bool VM::caseCallSetup(evm_message& o_msg, bytesRef& o_output)
 
     if (m_OP == Instruction::CALL && !destinationExists)
     {
-        if (m_SP[2] > 0 || m_rev >= EVM_SPURIOUS_DRAGON)
+        if (m_SP[2] > 0 || m_rev < EVM_SPURIOUS_DRAGON)
             m_runGas += VMSchedule::callNewAccount;
     }
 
@@ -267,7 +270,6 @@ bool VM::caseCallSetup(evm_message& o_msg, bytesRef& o_output)
         {
             o_msg.value = toEvmC(m_SP[2]);
             o_msg.gas += VMSchedule::callStipend;
-            if (m_OP == Instruction::CALL)
             {
                 evm_uint256be rawBalance;
                 m_context->fn_table->get_balance(&rawBalance, m_context, &m_message->destination);
