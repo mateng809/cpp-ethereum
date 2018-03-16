@@ -56,9 +56,16 @@ evm_result execute(evm_instance* _instance, evm_context* _context, evm_revision 
         result.release = delete_output;
         return result;
     }
-    catch (RevertInstruction const& ex)
+    catch (RevertInstruction& ex)
     {
         result.status_code = EVM_REVERT;
+        result.gas_left = vm->m_io_gas;
+        bytes output = ex.output().takeBytes();
+        auto output_data = new uint8_t[output.size()];
+        std::memcpy(output_data, output.data(), output.size());
+        result.output_data = output_data;
+        result.output_size = output.size();
+        result.release = delete_output;
         return result;
     }
     catch (VMException const&)
@@ -201,7 +208,7 @@ void VM::fetchInstruction()
     adjustStack(metric.args, metric.ret);
 
     // FEES...
-    std::array<int64_t, 8> tierStepGas{{0, 2, 3, 5, 8, 10, 20, 0}};
+    std::array<int64_t, 9> tierStepGas{{0, 2, 3, 5, 8, 10, 20, 0, 0}};
     m_runGas = tierStepGas[static_cast<unsigned>(metric.gasPriceTier)];
     m_newMemSize = m_mem.size();
     m_copyMemSize = 0;
@@ -339,9 +346,9 @@ void VM::interpretCases()
             {
                 // After EIP150 hard fork charge additional cost of sending
                 // ethers to non-existing account.
-                bool destinationExists =
-                    m_context->fn_table->account_exists(m_context, &destination) != 0;
-                if (m_rev >= EVM_SPURIOUS_DRAGON && !destinationExists)
+                int destinationExists =
+                    m_context->fn_table->account_exists(m_context, &destination);
+                if (m_rev >= EVM_TANGERINE_WHISTLE && !destinationExists)
                     m_runGas += VMSchedule::callNewAccount;
             }
 

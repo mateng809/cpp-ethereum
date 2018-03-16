@@ -140,7 +140,7 @@ void VM::caseCreate()
     {
         evm_message msg = {};
         msg.gas = m_io_gas;
-        if (m_rev >= EVM_SPURIOUS_DRAGON)
+        if (m_rev >= EVM_TANGERINE_WHISTLE)
             msg.gas -= msg.gas / 64;
 
         // Get init code. Casts are safe because the memory cost has been paid.
@@ -161,6 +161,9 @@ void VM::caseCreate()
         m_returnData.assign(result.output_data, result.output_data + result.output_size);
 
         m_io_gas -= (msg.gas - result.gas_left);
+
+        if (result.release)
+            result.release(&result);
     }
     else
         m_SPP[0] = 0;
@@ -182,11 +185,17 @@ void VM::caseCall()
         evm_result result;
         m_context->fn_table->call(&result, m_context, &msg);
 
+        if (result.status_code == EVM_REVERT)
+            std::cerr << "REVERT DATA " << (char*)result.output_data << " " << result.output_size << "\n";
+
         m_returnData.assign(result.output_data, result.output_data + result.output_size);
         bytesConstRef{&m_returnData}.copyTo(output);
 
         m_SPP[0] = result.status_code == EVM_SUCCESS ? 1 : 0;
         m_io_gas += result.gas_left;
+
+        if (result.release)
+            result.release(&result);
     }
     else
     {
@@ -277,6 +286,11 @@ bool VM::caseCallSetup(evm_message& o_msg, bytesRef& o_output)
                 balanceOk = balance >= value;
             }
         }
+    }
+    else if (m_OP == Instruction::DELEGATECALL)
+    {
+        o_msg.sender = m_message->sender;
+        o_msg.value = m_message->value;
     }
 
     if (balanceOk && m_message->depth < 1024)
